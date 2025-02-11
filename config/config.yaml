@@ -1,0 +1,28 @@
+mqtt:
+  hostname: "192.168.0.2"
+  port: 1883
+
+rest_server:
+  - url: "http://192.168.0.15/"
+    cyclic_requests:
+      - endpoint: getParameters
+        cycle: 10
+        topics:
+          - topic: "smartWb/meterReading"
+            json_path: "$.list.[0].meterReading"
+          - topic: "smartWb/actualPower"
+            json_path: "$.list.[0].actualPower"
+          - topic: "smartWb/actualCurrent"
+            json_path: "$.list.[0].actualCurrent"
+          - topic: "smartWb/vehicleState"
+            json_path: "$.list.[0].vehicleState"
+          - topic: "smartWb/evseState"
+            json_path: "$.list.[0].evseState"
+    triggered_requests:
+      - topic: "smartWb/setCurrent"
+        endpoint: "setCurrent"
+        params:
+          current: "{payload}"
+        method: "GET"
+        then_read:
+          - "getParameters"

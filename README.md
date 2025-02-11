@@ -2,9 +2,6 @@
 
 Make a HTTP interface accessible via MQTT.
 
-**Warning**
-This repo does not contain all code yet. It will soon be added.
-
 ## Purpose
 
 This code and docker container make a device with a HTTP interface accessible via MQTT.
