@@ -6,8 +6,9 @@ Make a HTTP interface accessible via MQTT.
 
 This code and docker container make a device with a HTTP interface accessible via MQTT.
 
-Several devices at home, like a wallbox or a photovoltaics inverter, provide a HTTP interfaces.
-However, these are often somehow limited: They might only allow the be called with a limited rate (i.e. once per second) due to little performance.
+Several devices at home, like a wallbox or a photovoltaics inverter, provide only HTTP interfaces.
+Often, these are somehow limited: Due to little performance, they might only allow the be called with a limited rate (i.e. once per second) and can only handle a few clients.
+
 When there are multiple clients polling these devices, one quickly gets into trouble:
  
 * HTTP requests might arrive at a similar time at the device causing performance issues
