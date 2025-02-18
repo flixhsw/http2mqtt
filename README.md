@@ -37,7 +37,7 @@ Create a `docker-compose.yml` with the following content:
     services:
       http2mqtt:
         container_name: http2mqtt
-        image: http2mqtt/http2mqtt:latest
+        image: flixhsw/http2mqtt:latest
         volumes:
         - './config:/app/config'
         restart: unless-stopped
