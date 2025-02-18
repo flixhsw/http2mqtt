@@ -6,6 +6,7 @@ mqtt:
 
 http:
   - url: "http://192.168.0.15/"
+    error_topic: "smartWb/httpErrors"
     requests:
       - &getParameters
         endpoint: getParameters

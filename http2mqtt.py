@@ -15,6 +15,9 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
 class HttpClient():
     def __init__(self, config):
         self.url = config['url']
+        self.errorTopic = config.get('error_topic', None)
+        self.errors = {}
+
         self.configCyclicRequests = config.get('requests', [])
         if len(self.configCyclicRequests) == 0:
             logger.info(self.url + ': No cyclic requests configured')
@@ -30,7 +33,16 @@ class HttpClient():
         while True:
             await asyncio.gather(self.request_and_publish(session, mqttClient, endpointCfg),
                                  asyncio.sleep(endpointCfg['cycle'] ))
-    
+
+    async def logErrors(self, mqttClient, endpoint):
+        if endpoint in self.errors:
+            self.errors[endpoint] += 1
+        else:
+            self.errors[endpoint] = 1
+
+        if self.errorTopic:
+            await mqttClient.publish(self.errorTopic, str(self.errors))
+
     async def request_and_publish(self, session, mqttClient, endpointCfg):
         endpoint = endpointCfg['endpoint']
         method = endpointCfg.get('method', 'GET').upper()
@@ -50,6 +62,7 @@ class HttpClient():
                 logger.debug(data)
         except Exception as err:
             logger.warning('exception %s' % type(err) + ' on ' + self.url + endpoint)
+            await self.logErrors(mqttClient, endpoint)
             return
 
         if len(topics) > 0:
