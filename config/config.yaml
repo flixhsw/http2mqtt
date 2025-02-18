@@ -22,9 +22,30 @@ http:
             json_path: "$.list.[0].vehicleState"
           - topic: "smartWb/evseState"
             json_path: "$.list.[0].evseState"
+          - topic: "smartWb/status"
+            json_path: "$.list.[0].vehicleState"
+            map:
+              1: A
+              2: B
+              3: C
+          - topic: "smartWb/enabled"
+            json_path: "$.list.[0].actualCurrent"
+            map:
+              0: 'false'
+            map_default: 'true'
     triggers:
       - topic: "smartWb/setCurrent"
         requests: 
+          - endpoint: setCurrent
+            params:
+              current: "{payload}"
+            method: "GET"
+          - <<: *getParameters
+      - topic: "smartWb/setStatus"
+        map:
+          'false': 0
+          'true': 6
+        requests:
           - endpoint: setCurrent
             params:
               current: "{payload}"

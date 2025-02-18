@@ -43,6 +43,24 @@ class HttpClient():
         if self.errorTopic:
             await mqttClient.publish(self.errorTopic, str(self.errors))
 
+    def mapValue(self, topic_config, value):
+        if 'map' in topic_config:
+            map = topic_config['map']
+            if value in map:
+                value = map[value]
+            elif 'map_default' in topic_config:
+                if topic_config['map_default'] == '{value}':
+                    pass
+                else:
+                    value = topic_config['map_default']
+            else:
+                logger.warning(topic_config['topic'] + ': ' +
+                               'Skipping value ' + str(value) + ' of type ' + str(type(value)) +
+                               ' which is not contained in map ' + str(map))
+                value = None
+
+        return value
+
     async def request_and_publish(self, session, mqttClient, endpointCfg):
         endpoint = endpointCfg['endpoint']
         method = endpointCfg.get('method', 'GET').upper()
@@ -74,8 +92,11 @@ class HttpClient():
                 jsonpath_expr = parse(topic_config['json_path'])
                 match = jsonpath_expr.find(data)
                 if match:
-                    message = match[0].value
-                    tasks.append(mqttClient.publish(topic_config['topic'], str(message)))
+                    value = match[0].value
+                    value = self.mapValue(topic_config, value)
+
+                    if value is not None:
+                        tasks.append(mqttClient.publish(topic_config['topic'], str(value)))
 
             await asyncio.gather(*tasks)
 
@@ -90,12 +111,16 @@ class HttpClient():
         async for message in mqttClient.messages:
             topic = str(message.topic)
             if topic in self.configTriggeredRequests:
+                payload = message.payload.decode('utf-8')
+                payload = self.mapValue(self.configTriggeredRequests[topic], payload)
+                if payload is None:
+                    continue
 
                 for endpointCfg in self.configTriggeredRequests[topic]['requests']:
                     params = endpointCfg.get('params', {}).copy()
 
                     for key, value in params.items():
-                        params[key] = value.format(payload=message.payload.decode('utf-8'))
+                        params[key] = value.format(payload=payload)
 
                     config = endpointCfg.copy()
                     config['params'] = params
