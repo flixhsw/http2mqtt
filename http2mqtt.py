@@ -113,8 +113,8 @@ async def main(config_path):
     logger.info('Starting MQTT connection to ' + hostname + ':' + str(port))
     async with aiomqtt.Client(hostname, port, username=user, password=password, identifier=identifier) as mqttClient:
         tasks = []
-        for config in config['http']:
-            handler = HttpClient(config)
+        for cfg in config['http']:
+            handler = HttpClient(cfg)
             tasks.append(handler.run(mqttClient))
 
         await asyncio.gather(*tasks)
