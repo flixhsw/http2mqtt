@@ -1,3 +1,5 @@
+loglevel: warning
+
 mqtt:
   hostname: "192.168.0.2"
   port: 1883

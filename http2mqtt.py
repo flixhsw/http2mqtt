@@ -103,6 +103,8 @@ class HttpClient():
 async def main(config_path):
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
+
+    logger.setLevel(config.get('loglevel', 'debug').upper())
     
     hostname = config['mqtt'].get('hostname')
     port = config['mqtt'].get('port', 1883)
