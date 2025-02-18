@@ -4,7 +4,7 @@ Make a HTTP interface accessible via MQTT.
 
 ## Purpose
 
-This code and docker container make a device with a HTTP interface accessible via MQTT.
+This code and docker container makes device(s) with a HTTP interface accessible via MQTT.
 
 Several devices at home, like a wallbox or a photovoltaics inverter, provide only HTTP interfaces.
 Often, these are somehow limited: Due to little performance, they might only allow the be called with a limited rate (i.e. once per second) and can only handle a few clients.
@@ -20,19 +20,17 @@ The retrieved information is then published via MQTT, from which multiple client
 HTTP endpoints can be polled, i.e. every 10 seconds.
 Alternatively, HTTP requests can be triggered by certain MQTT messages.
 
-## Usage
+## Configuration
 
-### Configuration
+See [configuration](doc/configuration.md).
 
-Create a `config.yaml` file to configure for each HTTP server, which endpoints shall be cyclically polled and which MQTT messages shall trigger a request.
+## Running the container
 
-### Running the container
-
-#### Via docker
+### Via docker
 
 `docker run -v ./config:/app/config http2mqtt`
 
-#### Via docker compose
+### Via docker compose
 
 Create a `docker-compose.yml` with the following content:
 
