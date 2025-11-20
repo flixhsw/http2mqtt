@@ -70,6 +70,11 @@ class HttpClient():
         method = endpointCfg.get('method', 'GET').upper()
         params = endpointCfg.get('params', {}).copy()
         topics = endpointCfg.get('topics', [])
+        retries = 1
+        retryDelay = 0
+        if 'retry' in endpointCfg:
+            retries = endpointCfg['retry']['retries']
+            retryDelay = endpointCfg['retry']['delay']
 
         for key, value in params.items():
             params[key] = value.format(**self.storage)
@@ -79,15 +84,21 @@ class HttpClient():
             self.logger.error(endpoint + ': Invalid method ' + method + '. Use one of: ' + ' '.join(validMethods))
             return
 
-        self.logger.info(method + ' ' + self.url + endpoint + ' with params=' + str(params))
-        try:
-            async with session.request(method, endpoint, params=params) as response:
-                self.logger.info(response.status)
-                data = await response.text()
-                self.logger.debug(data)
-        except Exception as err:
-            self.logger.warning('exception %s' % type(err) + ' on ' + self.url + endpoint)
-            await self.logErrors(mqttClient, endpoint)
+        for i in range(0, retries):
+            self.logger.info(f'try {i+1}/{retries}: {method} {self.url+endpoint} with params {str(params)}')
+            try:
+                async with session.request(method, endpoint, params=params) as response:
+                    self.logger.info(response.status)
+                    data = await response.text()
+                    self.logger.debug(data)
+                break
+            except Exception as err:
+                self.logger.warning('exception %s' % type(err) + ' on ' + self.url + endpoint)
+                await self.logErrors(mqttClient, endpoint)
+
+            if i+1 < retries:
+                await asyncio.sleep(retryDelay)
+        else:
             return
 
         if len(topics) > 0:

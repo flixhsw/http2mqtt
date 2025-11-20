@@ -45,6 +45,9 @@ http:
             params:
               current: "{payload}"
             method: "GET"
+            retry:
+              retries: 3
+              delay: 20
           - <<: *getParameters
       - topic: "smartWb/setStatus"
         map:
@@ -55,4 +58,7 @@ http:
             params:
               current: "{payload}"
             method: "GET"
+            retry:
+              retries: 3
+              delay: 20
           - <<: *getParameters
