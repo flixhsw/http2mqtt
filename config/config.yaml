@@ -8,6 +8,8 @@ http:
   - url: "http://192.168.0.15/"
     loglevel: debug
     error_topic: "smartWb/httpErrors"
+    storage:
+      current: 6
     requests:
       - &getParameters
         endpoint: getParameters
@@ -36,7 +38,9 @@ http:
             map_default: 'true'
     triggers:
       - topic: "smartWb/setCurrent"
-        requests: 
+        storage:
+          current: "{payload}"
+        requests:
           - endpoint: setCurrent
             params:
               current: "{payload}"
@@ -45,7 +49,7 @@ http:
       - topic: "smartWb/setStatus"
         map:
           'false': 0
-          'true': 6
+          'true': "{current}"
         requests:
           - endpoint: setCurrent
             params:

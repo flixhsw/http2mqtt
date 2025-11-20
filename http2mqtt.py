@@ -19,14 +19,16 @@ class HttpClient():
         self.logger.setLevel(config.get('loglevel', mainLogLevel).upper())
         self.errorTopic = config.get('error_topic', None)
         self.errors = {}
+        self.storage = config.get('storage', {})
+        self.logger.info('Storage initialized: ' + str(self.storage))
 
         self.configCyclicRequests = config.get('requests', [])
         if len(self.configCyclicRequests) == 0:
             self.logger.info(self.url + ': No cyclic requests configured')
 
         self.configTriggeredRequests = {}
-        for forwardCfg in config.get('triggers', []):
-            self.configTriggeredRequests[forwardCfg['topic']] = forwardCfg
+        for triggerCfg in config.get('triggers', []):
+            self.configTriggeredRequests[triggerCfg['topic']] = triggerCfg
         if len(self.configTriggeredRequests) == 0:
             self.logger.info(self.url + ': No triggered requests configured')
 
@@ -66,8 +68,11 @@ class HttpClient():
     async def request_and_publish(self, session, mqttClient, endpointCfg):
         endpoint = endpointCfg['endpoint']
         method = endpointCfg.get('method', 'GET').upper()
-        params = endpointCfg.get('params', {})
+        params = endpointCfg.get('params', {}).copy()
         topics = endpointCfg.get('topics', [])
+
+        for key, value in params.items():
+            params[key] = value.format(**self.storage)
 
         validMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'TRACE']
         if method not in validMethods:
@@ -118,6 +123,11 @@ class HttpClient():
                 payload = self.mapValue(self.configTriggeredRequests[topic], payload)
                 if payload is None:
                     continue
+
+                if 'storage' in self.configTriggeredRequests[topic]:
+                    for key, value in self.configTriggeredRequests[topic]['storage'].items():
+                        self.storage[key] = value.format(payload=payload)
+                    self.logger.debug('Updated storage: ' + str(self.storage))
 
                 for endpointCfg in self.configTriggeredRequests[topic]['requests']:
                     params = endpointCfg.get('params', {}).copy()
