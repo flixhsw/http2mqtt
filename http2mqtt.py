@@ -8,28 +8,30 @@ import logging
 import json
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', 
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     encoding='utf-8',
                     level=logging.DEBUG)
-    
+
 class HttpClient():
-    def __init__(self, config):
+    def __init__(self, config, mainLogLevel):
         self.url = config['url']
+        self.logger = logging.getLogger(self.url)
+        self.logger.setLevel(config.get('loglevel', mainLogLevel).upper())
         self.errorTopic = config.get('error_topic', None)
         self.errors = {}
 
         self.configCyclicRequests = config.get('requests', [])
         if len(self.configCyclicRequests) == 0:
-            logger.info(self.url + ': No cyclic requests configured')
+            self.logger.info(self.url + ': No cyclic requests configured')
 
         self.configTriggeredRequests = {}
         for forwardCfg in config.get('triggers', []):
             self.configTriggeredRequests[forwardCfg['topic']] = forwardCfg
         if len(self.configTriggeredRequests) == 0:
-            logger.info(self.url + ': No triggered requests configured')
+            self.logger.info(self.url + ': No triggered requests configured')
 
     async def executeCyclicRequest(self, session, mqttClient, endpointCfg):
-        logger.info('Starting cyclic request for ' + endpointCfg['endpoint'])
+        self.logger.info('Starting cyclic request for ' + endpointCfg['endpoint'])
         while True:
             await asyncio.gather(self.request_and_publish(session, mqttClient, endpointCfg),
                                  asyncio.sleep(endpointCfg['cycle'] ))
@@ -54,7 +56,7 @@ class HttpClient():
                 else:
                     value = topic_config['map_default']
             else:
-                logger.warning(topic_config['topic'] + ': ' +
+                self.logger.warning(topic_config['topic'] + ': ' +
                                'Skipping value ' + str(value) + ' of type ' + str(type(value)) +
                                ' which is not contained in map ' + str(map))
                 value = None
@@ -69,17 +71,17 @@ class HttpClient():
 
         validMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'TRACE']
         if method not in validMethods:
-            logger.error(endpoint + ': Invalid method ' + method + '. Use one of: ' + ' '.join(validMethods))
+            self.logger.error(endpoint + ': Invalid method ' + method + '. Use one of: ' + ' '.join(validMethods))
             return
 
-        logger.info(method + ' ' + self.url + endpoint + ' with params=' + str(params))
+        self.logger.info(method + ' ' + self.url + endpoint + ' with params=' + str(params))
         try:
             async with session.request(method, endpoint, params=params) as response:
-                logger.info(response.status)
+                self.logger.info(response.status)
                 data = await response.text()
-                logger.debug(data)
+                self.logger.debug(data)
         except Exception as err:
-            logger.warning('exception %s' % type(err) + ' on ' + self.url + endpoint)
+            self.logger.warning('exception %s' % type(err) + ' on ' + self.url + endpoint)
             await self.logErrors(mqttClient, endpoint)
             return
 
@@ -105,13 +107,14 @@ class HttpClient():
             return
 
         for topic in self.configTriggeredRequests.keys():
-            logger.info('Subscribing to ' + topic)
+            self.logger.info('Subscribing to ' + topic)
             await mqttClient.subscribe(topic)
- 
+
         async for message in mqttClient.messages:
             topic = str(message.topic)
             if topic in self.configTriggeredRequests:
                 payload = message.payload.decode('utf-8')
+                self.logger.debug('Received trigger ' + topic + ' with payload ' + payload)
                 payload = self.mapValue(self.configTriggeredRequests[topic], payload)
                 if payload is None:
                     continue
@@ -129,7 +132,7 @@ class HttpClient():
 
     async def run(self, mqttClient):
         timeout = aiohttp.ClientTimeout(total=5)
-        logger.info('Starting HTTP session with ' + self.url)
+        self.logger.info('Starting HTTP session with ' + self.url)
         async with aiohttp.ClientSession(self.url, timeout=timeout) as session:
             tasks = [ self.executeTriggeredRequests(session, mqttClient) ]
             for endpointCfg in self.configCyclicRequests:
@@ -142,8 +145,9 @@ async def main(config_path):
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
 
-    logger.setLevel(config.get('loglevel', 'debug').upper())
-    
+    mainLogLevel = config.get('loglevel', 'debug').upper()
+    logger.setLevel(mainLogLevel)
+
     hostname = config['mqtt'].get('hostname')
     port = config['mqtt'].get('port', 1883)
     user = config['mqtt'].get('user', None)
@@ -154,7 +158,7 @@ async def main(config_path):
     async with aiomqtt.Client(hostname, port, username=user, password=password, identifier=identifier) as mqttClient:
         tasks = []
         for cfg in config['http']:
-            handler = HttpClient(cfg)
+            handler = HttpClient(cfg, mainLogLevel)
             tasks.append(handler.run(mqttClient))
 
         await asyncio.gather(*tasks)
