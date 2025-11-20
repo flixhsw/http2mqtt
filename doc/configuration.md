@@ -24,11 +24,10 @@ All other options are optional.
 
 ## HTTP options
 
-### Polling
-
     http:
       - url: "http://192.168.0.15/"
         error_topic: "smartWb/httpErrors"
+        loglevel: debug|info|warning|error|critical
         requests:
           - endpoint: getParameters
             cycle: 10
@@ -43,11 +42,17 @@ All other options are optional.
                   2: B
                   3: C
 
-This configures a HTTP server for which the endpoint `getParameters` is called every 10 seconds (`cycle`).
-The method is `GET` as default, but any other HTTP method can be configured.
+This configures a HTTP server with the given URL.
+A specific loglevel can be configured for this endpoint. If not given, the general loglevel will be used.
 
-If the HTTP request is not successful (i.e. timeout), the error counter for this endpoint is increased by 1 and published with via MQTT with the `error_topic` topic.
+If one of the defined HTTP request is not successful (i.e. timeout), the error counter for this endpoint is increased by 1 and published with via MQTT with the `error_topic` topic.
 If `error_topic` is not configured, no MQTT topic is published, but the problem is still logged to STDOUT.
+
+### Polling
+
+The `requests` section defines cyclic requests.
+Here the endpoint `getParameters` is called every 10 seconds (`cycle`).
+The method is `GET` as default, but any other HTTP method can be configured.
 
 When the HTTP request is successful, the information defined by `json_path` will be extracted from the response and sent as MQTT topic as defined.
 Before sending the value, a mapping can be applied.
@@ -68,6 +73,8 @@ In this case the value specified as `map_default` will be sent when it is not fo
 
     - url: "http://192.168.0.15/"
       error_topic: "smartWb/httpErrors"
+      storage:
+        current: 6
       requests:
         - &getParameters
           endpoint: getParameters
@@ -91,6 +98,8 @@ In this case the value specified as `map_default` will be sent when it is not fo
                 3: C
       triggers:
         - topic: "smartWb/setCurrent"
+          storage:
+            current: "{payload}"
           requests: 
             - endpoint: setCurrent
               params:
@@ -104,3 +113,21 @@ The payload from the MQTT topic can be included into the HTTP request params.
 
 The example above uses YAML anchors and aliases to avoid repeating the configuration of the `getParameters` endpoint.
 
+### Storage
+
+Every http server has an individual storage which will be initialized with the key/value pairs given in the `storage` section.
+The payload of a trigger can be written to the storage (mappings will be applied first).
+
+Other triggers can then use values from the storage by specifying `"{key}"` as a parameter value.
+
+### Retry
+
+  - endpoint: setCurrent
+    method: "GET"
+    retry:
+      retries: 3
+      delay: 20
+
+For every HTTP endpoint, retries can be configured.
+In case of a failure (i.e. timeout), a retry of the operation will be triggered after wating the specified `delay` seconds.
+The default for `retries` is 1.
