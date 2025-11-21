@@ -4,7 +4,7 @@ Make a HTTP interface accessible via MQTT.
 
 ## Purpose
 
-This code and docker container makes device(s) with a HTTP interface accessible via MQTT.
+The http2mqtt python program and docker container makes device(s) with a HTTP interface accessible via MQTT.
 
 Several devices at home, like a wallbox or a photovoltaics inverter, provide only HTTP interfaces.
 Often, these are somehow limited: Due to little performance, they might only allow the be called with a limited rate (i.e. once per second) and can only handle a few clients.
@@ -14,7 +14,7 @@ When there are multiple clients polling these devices, one quickly gets into tro
 * HTTP requests might arrive at a similar time at the device causing performance issues
 * responses contain different data, which could cause problems when you expect clients are working on the same data.
 
-That's where this container helps: It is the single client polling the HTTP interface of your device(s).
+That's where http2mqtt helps: It is the single client polling the HTTP interface of your device(s).
 The retrieved information is then published via MQTT, from which multiple clients can consume without any performance issues.
 
 HTTP endpoints can be polled, i.e. every 10 seconds.
@@ -24,21 +24,16 @@ Alternatively, HTTP requests can be triggered by certain MQTT messages.
 
 See [configuration](doc/configuration.md).
 
-## Running the container
+## Building and running the container
 
-### Via docker
+Use the `docker-compose.yml` file to build and run the container with docker compose.
 
-`docker run -v ./config:/app/config http2mqtt`
+Build and run the container (or update the underlying images):
 
-### Via docker compose
+    docker compose up --build -d
 
-Create a `docker-compose.yml` with the following content:
+Stop the container
 
-    services:
-      http2mqtt:
-        container_name: http2mqtt
-        image: flixhsw/http2mqtt:latest
-        volumes:
-        - './config:/app/config'
-        restart: unless-stopped
+    docker compose down
+
 

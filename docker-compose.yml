@@ -1,0 +1,8 @@
+services:
+  http2mqtt:
+    container_name: http2mqtt
+    build: .
+    volumes:
+    - './config:/app/config'
+    restart: unless-stopped
+
