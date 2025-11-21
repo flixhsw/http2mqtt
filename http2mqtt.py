@@ -18,7 +18,9 @@ class HttpClient():
         self.logger = logging.getLogger(self.url)
         self.logger.setLevel(config.get('loglevel', mainLogLevel).upper())
         self.errorTopic = config.get('error_topic', None)
+        self.storageTopic = config.get('storage_topic', None)
         self.errors = {}
+
         self.storage = config.get('storage', {})
         self.logger.info('Storage initialized: ' + str(self.storage))
 
@@ -45,7 +47,15 @@ class HttpClient():
             self.errors[endpoint] = 1
 
         if self.errorTopic:
-            await mqttClient.publish(self.errorTopic, str(self.errors))
+            await mqttClient.publish(self.errorTopic + '/' + endpoint, self.errors[endpoint])
+
+    async def updateStorage(self, mqttClient, key, value):
+        self.storage[key] = value
+        self.logger.debug(f'Updated storage[{key}] = {value}')
+
+        if self.storageTopic:
+            await mqttClient.publish(self.storageTopic + '/' + key, value)
+
 
     def mapValue(self, topic_config, value):
         if 'map' in topic_config:
@@ -137,8 +147,7 @@ class HttpClient():
 
                 if 'storage' in self.configTriggeredRequests[topic]:
                     for key, value in self.configTriggeredRequests[topic]['storage'].items():
-                        self.storage[key] = value.format(payload=payload)
-                    self.logger.debug('Updated storage: ' + str(self.storage))
+                        await self.updateStorage(mqttClient, key, value.format(payload=payload))
 
                 for endpointCfg in self.configTriggeredRequests[topic]['requests']:
                     params = endpointCfg.get('params', {}).copy()
@@ -154,6 +163,12 @@ class HttpClient():
     async def run(self, mqttClient):
         timeout = aiohttp.ClientTimeout(total=5)
         self.logger.info('Starting HTTP session with ' + self.url)
+
+        # publish initialized storage
+        if self.storageTopic:
+            for key, value in self.storage.items():
+                await mqttClient.publish(self.storageTopic + '/' + key, value)
+
         async with aiohttp.ClientSession(self.url, timeout=timeout) as session:
             tasks = [ self.executeTriggeredRequests(session, mqttClient) ]
             for endpointCfg in self.configCyclicRequests:
